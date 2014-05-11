@@ -4,6 +4,16 @@
 var mysql = require('mysql');
 var request = require("request"); // You might need to npm install the request module!
 var expect = require('../../node_modules/chai/chai').expect;
+var Sequelize = require('sequelize');
+var sequelize = new Sequelize('chat', 'root', '');
+
+var Messages = sequelize.define('Messages', {
+  message_id : { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true},
+  user_name: Sequelize.STRING,
+  message_text: Sequelize.STRING,
+  room_name: Sequelize.STRING,
+  time: Sequelize.DATE
+});
 
 describe("Persistent Node Chat Server", function() {
   var dbConnection;
@@ -62,16 +72,13 @@ describe("Persistent Node Chat Server", function() {
 
   it("Should output all messages from the DB", function(done) {
     // Let's insert a message into the db
-    var queryString = 'INSERT INTO messages SET ?';
-    var queryArgs = { user_name: 'Javert', message_text: 'Men like you can never change!', room_name: 'room1'};
-    /* TODO - The exact query string and query args to use
-     * here depend on the schema you design, so I'll leave
-     * them up to you. */
 
-    dbConnection.query( queryString, queryArgs,
-      function(err, results, fields) {
-        /* Now query the Node chat server and see if it returns
-         * the message we just inserted: */
+    var messageContent = { user_name: "Javert", message_text: "Men like you can never change!",
+                           room_name: "room1", time: Date.now()};
+
+    sequelize.sync().success(function() {
+      Messages.create(messageContent).success(function(result) {
+        console.log(result);
         request("http://127.0.0.1:3000/classes/room1",
           function(error, response, body) {
             var messageLog = JSON.parse(body).results;
@@ -80,5 +87,13 @@ describe("Persistent Node Chat Server", function() {
             done();
           });
       });
+    });
+    // var queryString = 'INSERT INTO messages SET ?';
+    // var queryArgs = { user_name: 'Javert', message_text: 'Men like you can never change!', room_name: 'room1'};
+    /* TODO - The exact query string and query args to use
+     * here depend on the schema you design, so I'll leave
+     * them up to you. */
+        /* Now query the Node chat server and see if it returns
+         * the message we just inserted: */
   });
 });

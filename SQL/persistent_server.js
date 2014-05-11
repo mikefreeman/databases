@@ -2,6 +2,22 @@ var mysql = require('mysql');
 var http = require("http");
 var httpHelpers = require('../server/http-helpers');
 var url = require('url');
+var Sequelize = require('sequelize');
+
+
+var sequelize = new Sequelize('chat', 'root', '');
+
+var Messages = sequelize.define('Messages', {
+  message_id : { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true},
+  user_name: Sequelize.STRING,
+  message_text: Sequelize.STRING,
+  room_name: Sequelize.STRING,
+  time: Sequelize.DATE
+});
+
+var User = sequelize.define('User', {
+  user_name: Sequelize.STRING,
+});
 
 /* If the node mysql module is not found on your system, you may
  * need to do an "sudo npm install -g mysql". */
@@ -10,13 +26,6 @@ var url = require('url');
  * database: "chat" specifies that we're using the database called
  * "chat", which we created by running schema.sql.*/
 
-var database = mysql.createConnection({
-  user: "root",
-  password: "",
-  database: "chat"
-});
-
-database.connect();
 
 /* Now you can make queries to the Mysql database using the
  * dbConnection.query() method.
@@ -36,7 +45,6 @@ var port = 3000;
  * we'll have it listen on the IP address 127.0.0.1, which is a
  * special address that always refers to localhost. */
 var ip = "127.0.0.1";
-
 
 var messageHandler = function(request, response) {
   /* the 'request' argument comes from nodes http module. It includes info about the
@@ -59,7 +67,7 @@ var messageHandler = function(request, response) {
   } else if (request.method === "GET") {
     statusCode = 200;
 
-    database.query('SELECT * FROM messages where room_name="' + roomname + '"', function(err, rows, fields) {
+    sequelize.query('SELECT * FROM messages where room_name="' + roomname + '"').success(function(rows) {
       response.writeHead(statusCode, headers);
       responseData = JSON.stringify({results: rows});
       response.end(responseData);
@@ -75,9 +83,14 @@ var messageHandler = function(request, response) {
       var roomname = urlArr[2];
       messageContent.room_name  = messageContent.room_name || roomname;
       messageContent.time = new Date();
-      database.query('INSERT INTO messages SET ?', messageContent, function(error, rows, fields) {
-        response.writeHead(201, headers);
-        return response.end('\n');
+
+
+      sequelize.sync().success(function() {
+        Messages.create(messageContent).success(function(result) {
+          console.log(result);
+          response.writeHead(201, headers);
+          return response.end('\n');
+        });
       });
     });
 
@@ -109,8 +122,6 @@ var headers = {
 var server = http.createServer(messageHandler);
 console.log("Listening on http://" + ip + ":" + port);
 server.listen(port, ip);
-
-
 
 
 // var routes = {
